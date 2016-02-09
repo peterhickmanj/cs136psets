@@ -13,7 +13,9 @@ from messages import Upload, Request
 from util import even_split
 from peer import Peer
 
-class Dummy(Peer):
+# // DANIEL DOES THIS ONE
+
+class PhadyTyrant(Peer):
     def post_init(self):
         print "post_init(): %s here!" % self.id
         self.dummy_state = dict()

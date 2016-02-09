@@ -57,6 +57,8 @@ class PhadyStd(Peer):
         peers.sort(key=lambda p: p.id)
         # request all available pieces from all peers!
         # (up to self.max_requests from each)
+
+        # // look for rarest piece here
         for peer in peers:
             av_set = set(peer.available_pieces)
             isect = av_set.intersection(np_set)
@@ -105,21 +107,46 @@ class PhadyStd(Peer):
             for request in requests:
                 requesters = list(set(requesters.append(request.requester_id)))
 
-            for requester in requesters:
-                
+            numRequesters = len(requesters)
 
-            # // Select Requester with Top 3 scores (add to chosen)
+            if (numRequesters > 4 and round > 0):
 
-            # // if round % 3 == 0, optimistically unchoke someone (self.optimisticID)
+                # // TRY TO CLEAN
+                # // loop through requester and sum downloaded blocks from previous two rounds
+                if round > 1:
+                    for requester in requesters:
+                        score = 0
+                        dls = history.downloads[requester][round - 1]
+                        for dl in dls:
+                            score += dl.blocks
+                        dls = history.downloads[requester][round - 2]
+                        for dl in dls:
+                            score += dl.blocks
+                        scores[requester] = score
+                else:
+                    for requester in requesters:
+                        score = 0
+                        dls = history.downloads[requester][round - 1]
+                        for dl in dls:
+                            score += dl.blocks
+                        scores[requester] = score
 
-            # // create upload objects, probably using even split
+                # // get top three requesters
+                sortedScores = sorted(scores.iteritems(), key=operator.itemgetter(1), reverse=True)
+                chosen = [x[0] for x in sortedScores[:3]]
 
+                # // if round % 3 == 0, optimistically unchoke someone (self.optimisticID)
+                if (round % 3) == 0:
+                    self.optimisticID = random.choice(sortedScores[3:])
 
+                # // add uptimistic unchoked peer to chosen
+                chosen.append(self.optimisticID)
 
-            request = random.choice(requests)
-            chosen = [request.requester_id]
-            # Evenly "split" my upload bandwidth among the one chosen requester
-            bws = even_split(self.up_bw, len(chosen))
+                # // create upload objects, probably using even split
+                bws = even_split(self.up_bw, len(chosen))
+            else:
+                chosen = requesters
+                bws = even_split(self.up_bw, numRequesters)
 
         # create actual uploads out of the list of peer ids and bandwidths
         uploads = [Upload(self.id, peer_id, bw)
