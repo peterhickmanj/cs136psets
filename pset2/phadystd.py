@@ -18,6 +18,9 @@ class PhadyStd(Peer):
         print "post_init(): %s here!" % self.id
         self.dummy_state = dict()
         self.dummy_state["cake"] = "lie"
+
+        # // optimistic unchoke ID
+        self.optimisticID = 0
     
     def requests(self, peers, history):
         """
@@ -32,7 +35,7 @@ class PhadyStd(Peer):
         needed_pieces = filter(needed, range(len(self.pieces)))
         np_set = set(needed_pieces)  # sets support fast intersection ops.
 
-
+        """ Commenting out debugging prints (DNY 2/8/2016)
         logging.debug("%s here: still need pieces %s" % (
             self.id, needed_pieces))
 
@@ -43,6 +46,7 @@ class PhadyStd(Peer):
         logging.debug("And look, I have my entire history available too:")
         logging.debug("look at the AgentHistory class in history.py for details")
         logging.debug(str(history))
+        """
 
         requests = []   # We'll put all the things we want here
         # Symmetry breaking is good...
@@ -82,21 +86,35 @@ class PhadyStd(Peer):
         """
 
         round = history.current_round()
-        logging.debug("%s again.  It's round %d." % (
-            self.id, round))
+        # logging.debug("%s again.  It's round %d." % (
+        #     self.id, round))
         # One could look at other stuff in the history too here.
         # For example, history.downloads[round-1] (if round != 0, of course)
         # has a list of Download objects for each Download to this peer in
         # the previous round.
 
         if len(requests) == 0:
-            logging.debug("No one wants my pieces!")
+            # logging.debug("No one wants my pieces!") 
             chosen = []
             bws = []
         else:
-            logging.debug("Still here: uploading to a random peer")
-            # change my internal state for no reason
-            self.dummy_state["cake"] = "pie"
+            # // Score each requester
+            requesters = []
+            scores = {}
+
+            for request in requests:
+                requesters = list(set(requesters.append(request.requester_id)))
+
+            for requester in requesters:
+                
+
+            # // Select Requester with Top 3 scores (add to chosen)
+
+            # // if round % 3 == 0, optimistically unchoke someone (self.optimisticID)
+
+            # // create upload objects, probably using even split
+
+
 
             request = random.choice(requests)
             chosen = [request.requester_id]
