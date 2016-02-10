@@ -27,6 +27,7 @@ class PhadyTyrant(Peer):
 
         # // keep track of gained pieces per round
         # // dict[peer.id] -> list(set(pieces)[numPieces])[round]
+        # // dict[peer.id] -> list(numPiecesDownloaded)[round]
         self.peerHistory = dict()
         self.peerHistoryNum = dict()
 
@@ -40,6 +41,13 @@ class PhadyTyrant(Peer):
         # // dict[peer.id] -> float (estimated rate)
         self.peerDownloadRate = dict()
         self.peerUploadRate = dict()
+
+        # // keep track of unchoked peers
+        self.unchokedPeers = set()
+
+        # // learning constants
+        self.Gamma = 0.1
+        self.Alpha = 0.2
     
     def requests(self, peers, history):
         """
@@ -114,7 +122,8 @@ class PhadyTyrant(Peer):
                 self.peerHistoryNum[peer.id] = [0]
                 self.peerLastAvailable[peer.id] = set(peer.available_pieces)
                 self.myDownloadsByPeer[peer.id] = []
-                self.myDownloadsByPeer[peer.id] = []
+                self.myDownloadBlocksByPeer[peer.id] = []
+                self.unchokedPeers = self.unchokedPeers.add(peer.id)
         else:
             # // do updates for peer info
             for peer in peers:
@@ -125,12 +134,11 @@ class PhadyTyrant(Peer):
                 self.peerHistory[peer.id].append(new_pieces)
                 self.peerHistoryNum[peer.id].append(len(new_pieces))
 
-            # // update my downloads
-
-                # // initialize number of blocks
+            # // update my download information
+                # // initialize dictionary entries for this round
             for peer in peers:
-                self.myDownloadsByPeer[peer.id][round-1].append([])
-                self.myDownloadBlocksByPeer[peer.id][round-1].append(0)
+                self.myDownloadsByPeer[peer.id].append([])
+                self.myDownloadBlocksByPeer[peer.id].append(0)
 
                 # // input info from downloads
             for download in history.downloads[history.last_round()]:
@@ -142,13 +150,35 @@ class PhadyTyrant(Peer):
                 # // track the number of blocks downloaded by each peer
                 self.myDownloadBlocksByPeer[download.from_id][round-1]+=download.blocks
 
-        # // estimate the download rates
+        # // estimate the download rates by filling self.peerDownloadRate
         for peer in peers:
-            if self.myDownloadBlocksByPeer[peer.id][round-1] != 0:
+            if self.myDownloadBlocksByPeer[peer.id][round-1] > 0:
                 # // if currently unchoked, note the rate
                 self.peerDownloadRate[peer.id] = self.myDownloadBlocksByPeer[peer.id][round-1]
             else:
-                # // estimate it LEFT OFF HERE!!!
+                # // otherwise, estimate split upload as the total download rate divided by the estimated slots
+                # // MAY NEED CASE WORK FOR ROUND 0
+                estimatedSlots = 4
+                avgDownload = sum(self.peerHistoryNum[peer.id])/float(len(self.peerHistoryNum[peer.id]))
+                self.peerDownloadRate[peer.id] = avgDownload / estimatedSlots
+
+        # // estimate the upload rates by filling self.peerUploadRate
+        # // ERROR CHECK FOR ROUND 0
+        if round == 1:
+            for peer in peers:
+                # // initialize the u_j for the first round
+                self.peerUploadRate[peer.id] = self.peerDownloadRate[peer.id]
+        else:
+            for peer_id in self.unchokedPeers:
+                # // update the u_j
+                # // INCLUDE LOGIC FOR LAST R ROUNDS ???
+                if self.myDownloadBlocksByPeer[download.from_id][round-1] > 0:
+                    # // if unchoked, decrease estimated upload
+                    self.peerUploadRate[peer_id] = self.peerUploadRate[peer_id] * (1 - self.Gamma)
+                else:
+                    # // else increase estimated u_j
+                    self.peerUploadRate[peer_id] = self.peerUploadRate[peer_id] * (1 + self.Alpha)
+        # // LEFT OFF HERE!!!
 
         """ Commented out debugging statements DNY 2/10/2016
         logging.debug("%s again.  It's round %d." % (
