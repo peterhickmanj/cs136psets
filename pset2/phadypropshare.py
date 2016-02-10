@@ -1,71 +1,51 @@
-#!/usr/bin/python
-
-# This is a dummy peer that just illustrates the available information your peers 
-# have available.
-
-# You'll want to copy this file to AgentNameXXX.py for various versions of XXX,
-# probably get rid of the silly logging messages, and then add more logic.
+# Implements Prop Share
 
 import random
 import logging
 
 from messages import Upload, Request
-from util import even_split
+from util import even_split, round_list
 from peer import Peer
 
 # // PETER DOES THIS ONE
 
-class PhadyPropshare(Peer):
+class PhadyPropShare(Peer):
     def post_init(self):
         print "post_init(): %s here!" % self.id
         self.dummy_state = dict()
         self.dummy_state["cake"] = "lie"
     
     def requests(self, peers, history):
-        """
-        peers: available info about the peers (who has what pieces)
-        history: what's happened so far as far as this peer can see
 
-        returns: a list of Request() objects
-
-        This will be called after update_pieces() with the most recent state.
-        """
+        # make set of pieces I need
         needed = lambda i: self.pieces[i] < self.conf.blocks_per_piece
         needed_pieces = filter(needed, range(len(self.pieces)))
         np_set = set(needed_pieces)  # sets support fast intersection ops.
-
-
-        logging.debug("%s here: still need pieces %s" % (
-            self.id, needed_pieces))
-
-        logging.debug("%s still here. Here are some peers:" % self.id)
-        for p in peers:
-            logging.debug("id: %s, available pieces: %s" % (p.id, p.available_pieces))
-
-        logging.debug("And look, I have my entire history available too:")
-        logging.debug("look at the AgentHistory class in history.py for details")
-        logging.debug(str(history))
-
         requests = []   # We'll put all the things we want here
-        # Symmetry breaking is good...
-        random.shuffle(needed_pieces)
-        
-        # Sort peers by id.  This is probably not a useful sort, but other 
-        # sorts might be useful
-        peers.sort(key=lambda p: p.id)
-        # request all available pieces from all peers!
-        # (up to self.max_requests from each)
+        random.shuffle(needed_pieces)   # break symmetry
+        peers.sort(key=lambda p: p.id)   # just some sorting
+
+        # dictionary of zero counts
+        pieceCounts = dict(zip(range(len(self.pieces)), [0 for _ in range(len(self.pieces))]))
+
+        # list of how common pieces are
+        for peer in peers:
+            for pieceNum in list(peer.available_pieces):
+                pieceCounts[pieceNum] = pieceCounts[pieceNum] + 1
+
+        # sort by rarest first
+        pieceCountsSorted = sorted(pieceCounts, key=pieceCounts.get)
+
         for peer in peers:
             av_set = set(peer.available_pieces)
             isect = av_set.intersection(np_set)
             n = min(self.max_requests, len(isect))
-            # More symmetry breaking -- ask for random pieces.
-            # This would be the place to try fancier piece-requesting strategies
-            # to avoid getting the same thing from multiple peers at a time.
-            for piece_id in random.sample(isect, n):
-                # aha! The peer has this piece! Request it.
-                # which part of the piece do we need next?
-                # (must get the next-needed blocks in order)
+
+            # filter dictionary to keep only if in isect
+            isectFiltered = {k:v for (k,v) in pieceCountsSorted.iteritems() if k in list(isect)}
+
+            # ask for first n pieces in isectFiltered
+            for piece_id in isectFiltered.items()[0:(n-1)] :
                 start_block = self.pieces[piece_id]
                 r = Request(self.id, peer.id, piece_id, start_block)
                 requests.append(r)
@@ -73,37 +53,61 @@ class PhadyPropshare(Peer):
         return requests
 
     def uploads(self, requests, peers, history):
-        """
-        requests -- a list of the requests for this peer for this round
-        peers -- available info about all the peers
-        history -- history for all previous rounds
 
-        returns: list of Upload objects.
-
-        In each round, this will be called after requests().
-        """
-
+        # current round
         round = history.current_round()
-        logging.debug("%s again.  It's round %d." % (
-            self.id, round))
-        # One could look at other stuff in the history too here.
-        # For example, history.downloads[round-1] (if round != 0, of course)
-        # has a list of Download objects for each Download to this peer in
-        # the previous round.
 
-        if len(requests) == 0:
-            logging.debug("No one wants my pieces!")
+        if len(requests) == 0 or round == 0:
             chosen = []
             bws = []
-        else:
-            logging.debug("Still here: uploading to a random peer")
-            # change my internal state for no reason
-            self.dummy_state["cake"] = "pie"
 
-            request = random.choice(requests)
-            chosen = [request.requester_id]
-            # Evenly "split" my upload bandwidth among the one chosen requester
-            bws = even_split(self.up_bw, len(chosen))
+        else:
+
+            # list of requesters
+            requesters = []
+            for request in requests:
+                print request.requester_id
+                test = requesters.append(request.requester_id)
+                print test
+                requesters = list(set(test))
+
+            # count downloads received from peer in last round
+            scores = {}
+            for requester in requesters:
+                score = 0
+                dls = history.downloads[requester][round - 1]
+                for dl in dls:
+                    score += dl.blocks
+                scores[requester] = score
+
+            # all downloads I got from requesters last round
+            totalDownloads = sum(scores.values)
+
+            # create dictionary of peers to upload to, and how much to send to them
+            # Formula: u_j = 0.9*u_t*(d_j/d_t)
+            numsToUpload = {}
+            for requester in requesters:
+                numsToUpload[requester] = 0.9 * self.up_bw * (scores[requester] / totalDownloads)
+
+            # chosen and bandwidths for (possible) unchoking and rounding
+            chosen = list(numsToUpload.keys)
+            bwPreRound = list(numsToUpload.values)
+
+            # choose someone to optimistically unchoke
+            candidates = dict((k, v) for k, v in numsToUpload.items() if v == 0)
+
+            # if there is a candidate, add to chosen and bws
+            if len(candidates) != 0:
+                winner = random.choice(candidates)
+                chosen.append(winner)
+                bwPreRound.append(0.1 * self.up_bw)
+
+            # otherwise, add 0.1*up_bw for all chosen
+            else:
+                bwPreRound = [x + (0.1 * self.up_bw) for x in bwPreRound]
+
+            # round bandwidths using helper function (in util.py)
+            bws = round_list(bwPreRound)
 
         # create actual uploads out of the list of peer ids and bandwidths
         uploads = [Upload(self.id, peer_id, bw)

@@ -6,6 +6,7 @@
 
 from itertools import imap, izip, count
 import math
+import random
 
 
 def argmax(pairs):
@@ -85,7 +86,6 @@ def even_split(n, k):
     ans.extend([n/k + 1] * r)
     return ans
 
-
 def load_modules(agent_classes):
     """Each agent class must be in module class_name.lower().
     Returns a dictionary class_name->class"""
@@ -98,7 +98,26 @@ def load_modules(agent_classes):
 
     return dict(map(load, agent_classes))
     
+def round_list(props):
+    """
+    rounds props to integers while keeping sum(props) constant
+    """
 
+    # round list elements and calculate number to add
+    roundedProps = [round(x) for x in props]
+    n = int(sum(props) - sum(roundedProps))
+
+    # choose n random elements and add/subtract 1 for each
+    while n != 0:
+        index = random.choice(range(len(props)))
+        if n > 0:
+            roundedProps[index] = roundedProps[index] + 1
+            n = n - 1
+        elif n < 0:
+            if roundedProps[index] >= 1:
+                roundedProps[index] = roundedProps[index] - 1
+                n = n + 1
+    return roundedProps
 
 class Params:
     def __init__(self):
