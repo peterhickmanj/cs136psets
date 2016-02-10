@@ -95,6 +95,16 @@ class PhadyStd(Peer):
         # has a list of Download objects for each Download to this peer in
         # the previous round.
 
+        print 
+        print "my requests:"
+        print(requests)
+        print
+        print "my peers:"
+        print(peers)
+        print
+        print "my history:"
+        print(history)
+
         if len(requests) == 0:
             # logging.debug("No one wants my pieces!") 
             chosen = []
@@ -105,6 +115,7 @@ class PhadyStd(Peer):
             scores = {}
 
             for request in requests:
+                # // 'requesters' is a list of requester_id's
                 requesters = list(set(requesters.append(request.requester_id)))
 
             numRequesters = len(requesters)
@@ -112,6 +123,7 @@ class PhadyStd(Peer):
             if (numRequesters > 4 and round > 0):
 
                 # // TRY TO CLEAN
+                # // we did this wrong!!
                 # // loop through requester and sum downloaded blocks from previous two rounds
                 if round > 1:
                     for requester in requesters:

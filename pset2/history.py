@@ -63,6 +63,11 @@ class History:
         append these downloads to to the history
         """
         for pid in self.peer_ids:
+            print
+            print "pid:"
+            print(type(pid))
+            print(pid)
+            print
             self.downloads[pid].append(dls[pid])
             print
             print "downloads!! ========="

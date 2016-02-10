@@ -89,6 +89,28 @@ class Dummy(Peer):
         # has a list of Download objects for each Download to this peer in
         # the previous round.
 
+        print 
+        print "my requests:"
+        print(requests)
+        print
+        print "my peers:"
+        print(peers)
+        print
+        print "my history:"
+        print(history)
+        print
+        print "my downloads:"
+        print(history.downloads)
+        print
+        if round >= 1:
+            print "hi"
+            print(history.downloads[history.last_round()])
+
+        # for peer in peers
+        #     print(type(history.downloads[peer.id]))
+        #     print(history.downloads[peer.id])
+        #     print
+
         if len(requests) == 0:
             logging.debug("No one wants my pieces!")
             chosen = []
