@@ -14,6 +14,9 @@ class PhadyPropShare(Peer):
     
     def requests(self, peers, history):
 
+        # print "requests"
+        # print
+
         # make set of pieces I need
         needed = lambda i: self.pieces[i] < self.conf.blocks_per_piece
         needed_pieces = filter(needed, range(len(self.pieces)))
@@ -52,7 +55,7 @@ class PhadyPropShare(Peer):
 
     def uploads(self, requests, peers, history):
 
-        print "test"
+        # print "test"
 
         # current round
         round = history.current_round()

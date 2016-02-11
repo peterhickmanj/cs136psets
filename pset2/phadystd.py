@@ -8,6 +8,7 @@
 
 import random
 import logging
+import operator
 
 from messages import Upload, Request
 from util import even_split
@@ -51,7 +52,7 @@ class PhadyStd(Peer):
             # filter dictionary to keep only if in isect
             isectFiltered = [k for k in pieceCountsSorted if k in list(isect)]
 
-            print "success!"
+            # print "success!"
             # ask for first n pieces in isectFiltered
             m = min(len(isectFiltered),n)
             for piece_id in isectFiltered[0:m]:
