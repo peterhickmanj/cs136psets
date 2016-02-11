@@ -165,9 +165,8 @@ class PhadyTyrant(Peer):
         # // estimate the upload rates by filling self.peerUploadRate
         # // ERROR CHECK FOR ROUND 0
         if round == 1:
-            for peer in peers:
-                # // initialize the u_j for the first round
-                self.peerUploadRate[peer.id] = self.peerDownloadRate[peer.id]
+            # // initialize the u_j for the first round
+            self.peerUploadRate = self.peerDownloadRate
         else:
             for peer_id in self.unchokedPeers:
                 # // update the u_j
@@ -178,7 +177,13 @@ class PhadyTyrant(Peer):
                 else:
                     # // else increase estimated u_j
                     self.peerUploadRate[peer_id] = self.peerUploadRate[peer_id] * (1 + self.Alpha)
-        # // LEFT OFF HERE!!!
+        
+        # // compute scores for peers
+        scores = {}
+        for peer in peers:
+            scores[peer.id] = float(self.peerDownloadRate)/self.peerUploadRate
+        sortedScores = sorted(scores.iteritems(), key=operator.itemgetter(1), reverse=True)
+        sortedIDs = [x[0] for x in sortedScores]
 
         """ Commented out debugging statements DNY 2/10/2016
         logging.debug("%s again.  It's round %d." % (
@@ -202,14 +207,15 @@ class PhadyTyrant(Peer):
             # change my internal state for no reason
             self.dummy_state["cake"] = "pie"
             """
-
-            request = random.choice(requests)
-            chosen = [request.requester_id]
-            # Evenly "split" my upload bandwidth among the one chosen requester
-            bws = even_split(self.up_bw, len(chosen))
+            bw_available = self.up_bw
+            for ID in sortedIDs:
+                bw_available -= self.peerUploadRate[ID] 
+                if bw_available <= 0:
+                    break
+                chosen.append(ID)
+                bws.append(self.peerUploadRate[ID])
 
         # create actual uploads out of the list of peer ids and bandwidths
         uploads = [Upload(self.id, peer_id, bw)
                    for (peer_id, bw) in zip(chosen, bws)]
-            
         return uploads

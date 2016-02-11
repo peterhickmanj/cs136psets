@@ -23,53 +23,38 @@ class PhadyStd(Peer):
         self.optimisticID = 0
     
     def requests(self, peers, history):
-        """
-        peers: available info about the peers (who has what pieces)
-        history: what's happened so far as far as this peer can see
 
-        returns: a list of Request() objects
-
-        This will be called after update_pieces() with the most recent state.
-        """
+        # make set of pieces I need
         needed = lambda i: self.pieces[i] < self.conf.blocks_per_piece
         needed_pieces = filter(needed, range(len(self.pieces)))
         np_set = set(needed_pieces)  # sets support fast intersection ops.
-
-        """ Commenting out debugging prints (DNY 2/8/2016)
-        logging.debug("%s here: still need pieces %s" % (
-            self.id, needed_pieces))
-
-        logging.debug("%s still here. Here are some peers:" % self.id)
-        for p in peers:
-            logging.debug("id: %s, available pieces: %s" % (p.id, p.available_pieces))
-
-        logging.debug("And look, I have my entire history available too:")
-        logging.debug("look at the AgentHistory class in history.py for details")
-        logging.debug(str(history))
-        """
-
         requests = []   # We'll put all the things we want here
-        # Symmetry breaking is good...
-        random.shuffle(needed_pieces)
-        
-        # Sort peers by id.  This is probably not a useful sort, but other 
-        # sorts might be useful
-        peers.sort(key=lambda p: p.id)
-        # request all available pieces from all peers!
-        # (up to self.max_requests from each)
+        random.shuffle(needed_pieces)   # break symmetry
+        peers.sort(key=lambda p: p.id)   # just some sorting
 
-        # // look for rarest piece here
+        # dictionary of zero counts
+        pieceCounts = dict(zip(range(len(self.pieces)), [0 for _ in range(len(self.pieces))]))
+
+        # list of how common pieces are
+        for peer in peers:
+            for pieceNum in list(peer.available_pieces):
+                pieceCounts[pieceNum] = pieceCounts[pieceNum] + 1
+
+        # sort by rarest first
+        pieceCountsSorted = sorted(pieceCounts, key=pieceCounts.get)
+
         for peer in peers:
             av_set = set(peer.available_pieces)
             isect = av_set.intersection(np_set)
             n = min(self.max_requests, len(isect))
-            # More symmetry breaking -- ask for random pieces.
-            # This would be the place to try fancier piece-requesting strategies
-            # to avoid getting the same thing from multiple peers at a time.
-            for piece_id in random.sample(isect, n):
-                # aha! The peer has this piece! Request it.
-                # which part of the piece do we need next?
-                # (must get the next-needed blocks in order)
+
+            # filter dictionary to keep only if in isect
+            isectFiltered = [k for k in pieceCountsSorted if k in list(isect)]
+
+            print "success!"
+            # ask for first n pieces in isectFiltered
+            m = min(len(isectFiltered),n)
+            for piece_id in isectFiltered[0:m]:
                 start_block = self.pieces[piece_id]
                 r = Request(self.id, peer.id, piece_id, start_block)
                 requests.append(r)
@@ -88,13 +73,8 @@ class PhadyStd(Peer):
         """
 
         round = history.current_round()
-        # logging.debug("%s again.  It's round %d." % (
-        #     self.id, round))
-        # One could look at other stuff in the history too here.
-        # For example, history.downloads[round-1] (if round != 0, of course)
-        # has a list of Download objects for each Download to this peer in
-        # the previous round.
 
+        """ debugging statements 
         print 
         print "my requests:"
         print(requests)
@@ -104,9 +84,9 @@ class PhadyStd(Peer):
         print
         print "my history:"
         print(history)
+        """
 
         if len(requests) == 0:
-            # logging.debug("No one wants my pieces!") 
             chosen = []
             bws = []
         else:
@@ -116,32 +96,26 @@ class PhadyStd(Peer):
 
             for request in requests:
                 # // 'requesters' is a list of requester_id's
-                requesters = list(set(requesters.append(request.requester_id)))
+                requesters.append(request.requester_id)
+                requesters = list(set(requesters))
 
             numRequesters = len(requesters)
 
             if (numRequesters > 4 and round > 0):
 
-                # // TRY TO CLEAN
-                # // we did this wrong!!
                 # // loop through requester and sum downloaded blocks from previous two rounds
+                # dictionary of zero counts
+                scores = dict(zip(requesters, [0]*numRequesters))
+
                 if round > 1:
-                    for requester in requesters:
-                        score = 0
-                        dls = history.downloads[requester][round - 1]
-                        for dl in dls:
-                            score += dl.blocks
-                        dls = history.downloads[requester][round - 2]
-                        for dl in dls:
-                            score += dl.blocks
-                        scores[requester] = score
+                    for i in [round-1,round-2]:
+                        for dl in history.downloads[i]:
+                            if dl.from_id in requesters:
+                                scores[dl.from_id] += dl.blocks
                 else:
-                    for requester in requesters:
-                        score = 0
-                        dls = history.downloads[requester][round - 1]
-                        for dl in dls:
-                            score += dl.blocks
-                        scores[requester] = score
+                    for dl in history.downloads[round-1]:
+                        if dl.from_id in requesters:
+                            scores[dl.from_id] += dl.blocks
 
                 # // get top three requesters
                 sortedScores = sorted(scores.iteritems(), key=operator.itemgetter(1), reverse=True)
