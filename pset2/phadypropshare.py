@@ -7,11 +7,8 @@ from messages import Upload, Request
 from util import even_split, round_list
 from peer import Peer
 
-# // PETER DOES THIS ONE
-
 class PhadyPropShare(Peer):
     def post_init(self):
-        print "post_init(): %s here!" % self.id
         self.dummy_state = dict()
         self.dummy_state["cake"] = "lie"
     
@@ -42,10 +39,11 @@ class PhadyPropShare(Peer):
             n = min(self.max_requests, len(isect))
 
             # filter dictionary to keep only if in isect
-            isectFiltered = {k:v for (k,v) in pieceCountsSorted.iteritems() if k in list(isect)}
+            isectFiltered = [k for k in pieceCountsSorted if k in list(isect)]
 
             # ask for first n pieces in isectFiltered
-            for piece_id in isectFiltered.items()[0:(n-1)] :
+            m = min(len(isectFiltered),n)
+            for piece_id in isectFiltered[0:m]:
                 start_block = self.pieces[piece_id]
                 r = Request(self.id, peer.id, piece_id, start_block)
                 requests.append(r)
@@ -53,6 +51,8 @@ class PhadyPropShare(Peer):
         return requests
 
     def uploads(self, requests, peers, history):
+
+        print "test"
 
         # current round
         round = history.current_round()
@@ -66,39 +66,38 @@ class PhadyPropShare(Peer):
             # list of requesters
             requesters = []
             for request in requests:
-                print request.requester_id
-                test = requesters.append(request.requester_id)
-                print test
-                requesters = list(set(test))
+                requesters.append(request.requester_id)
+                requesters = list(set(requesters))
 
             # count downloads received from peer in last round
-            scores = {}
-            for requester in requesters:
-                score = 0
-                dls = history.downloads[requester][round - 1]
-                for dl in dls:
-                    score += dl.blocks
-                scores[requester] = score
+            peerIds = [x.id for x in peers]
+            scores = dict(zip(peerIds, [0]*len(peerIds)))
+            for dl in history.downloads[round-1]:
+                if dl.from_id in requesters:
+                    scores[dl.from_id] += dl.blocks
 
             # all downloads I got from requesters last round
-            totalDownloads = sum(scores.values)
+            totalDownloads = sum(scores.values())
 
             # create dictionary of peers to upload to, and how much to send to them
             # Formula: u_j = 0.9*u_t*(d_j/d_t)
             numsToUpload = {}
             for requester in requesters:
-                numsToUpload[requester] = 0.9 * self.up_bw * (scores[requester] / totalDownloads)
+                if totalDownloads != 0:
+                    numsToUpload[requester] = 0.9 * self.up_bw * (scores[requester] / totalDownloads)
+                else:
+                    numsToUpload[requester] = 0
 
             # chosen and bandwidths for (possible) unchoking and rounding
-            chosen = list(numsToUpload.keys)
-            bwPreRound = list(numsToUpload.values)
+            chosen = list(numsToUpload.keys())
+            bwPreRound = list(numsToUpload.values())
 
             # choose someone to optimistically unchoke
             candidates = dict((k, v) for k, v in numsToUpload.items() if v == 0)
 
             # if there is a candidate, add to chosen and bws
             if len(candidates) != 0:
-                winner = random.choice(candidates)
+                winner = random.choice(candidates.keys())
                 chosen.append(winner)
                 bwPreRound.append(0.1 * self.up_bw)
 
@@ -112,5 +111,9 @@ class PhadyPropShare(Peer):
         # create actual uploads out of the list of peer ids and bandwidths
         uploads = [Upload(self.id, peer_id, bw)
                    for (peer_id, bw) in zip(chosen, bws)]
+        print "####################################"
+        print self.id
+        print uploads
+        print "######################################"
             
         return uploads

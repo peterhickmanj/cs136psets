@@ -15,7 +15,6 @@ from peer import Peer
 
 class Dummy(Peer):
     def post_init(self):
-        print "post_init(): %s here!" % self.id
         self.dummy_state = dict()
         self.dummy_state["cake"] = "lie"
     
@@ -32,7 +31,7 @@ class Dummy(Peer):
         needed_pieces = filter(needed, range(len(self.pieces)))
         np_set = set(needed_pieces)  # sets support fast intersection ops.
 
-
+        '''
         logging.debug("%s here: still need pieces %s" % (
             self.id, needed_pieces))
 
@@ -43,6 +42,7 @@ class Dummy(Peer):
         logging.debug("And look, I have my entire history available too:")
         logging.debug("look at the AgentHistory class in history.py for details")
         logging.debug(str(history))
+        '''
 
         requests = []   # We'll put all the things we want here
         # Symmetry breaking is good...
@@ -89,6 +89,7 @@ class Dummy(Peer):
         # has a list of Download objects for each Download to this peer in
         # the previous round.
 
+        '''
         print 
         print "my requests:"
         print(requests)
@@ -105,6 +106,7 @@ class Dummy(Peer):
         if round >= 1:
             print "hi"
             print(history.downloads[history.last_round()])
+        '''
 
         # for peer in peers
         #     print(type(history.downloads[peer.id]))
@@ -112,11 +114,11 @@ class Dummy(Peer):
         #     print
 
         if len(requests) == 0:
-            logging.debug("No one wants my pieces!")
+            #logging.debug("No one wants my pieces!")
             chosen = []
             bws = []
         else:
-            logging.debug("Still here: uploading to a random peer")
+            #logging.debug("Still here: uploading to a random peer")
             # change my internal state for no reason
             self.dummy_state["cake"] = "pie"
 
