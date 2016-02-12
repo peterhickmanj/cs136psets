@@ -105,7 +105,7 @@ def round_list(props):
 
     # round list elements and calculate number to add
     roundedProps = [round(x) for x in props]
-    n = int(sum(props) - sum(roundedProps))
+    n = int(sum(props) - sum(roundedProps) - 0.01)
 
     # choose n random elements and add/subtract 1 for each
     while n != 0:

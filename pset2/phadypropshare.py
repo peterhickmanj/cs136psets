@@ -11,11 +11,9 @@ class PhadyPropShare(Peer):
     def post_init(self):
         self.dummy_state = dict()
         self.dummy_state["cake"] = "lie"
+        self.optim = self.id   # id of optimistic unchoke
     
     def requests(self, peers, history):
-
-        # print "requests"
-        # print
 
         # make set of pieces I need
         needed = lambda i: self.pieces[i] < self.conf.blocks_per_piece
@@ -23,15 +21,16 @@ class PhadyPropShare(Peer):
         np_set = set(needed_pieces)  # sets support fast intersection ops.
         requests = []   # We'll put all the things we want here
         random.shuffle(needed_pieces)   # break symmetry
-        peers.sort(key=lambda p: p.id)   # just some sorting
+        peers.sort(key=lambda p: p.id)   # just some sorting to break symmetry
 
-        # dictionary of zero counts
-        pieceCounts = dict(zip(range(len(self.pieces)), [0 for _ in range(len(self.pieces))]))
+        # pieceCounts[pieceNum] -> countOfPieces
+        # initialize countOfPieces to 0
+        pieceCounts = dict(zip(range(len(self.pieces)), [0]*(len(self.pieces))))
 
-        # list of how common pieces are
+        # count appearances of each piece in network
         for peer in peers:
             for pieceNum in list(peer.available_pieces):
-                pieceCounts[pieceNum] = pieceCounts[pieceNum] + 1
+                pieceCounts[pieceNum] += 1
 
         # sort by rarest first
         pieceCountsSorted = sorted(pieceCounts, key=pieceCounts.get)
@@ -41,12 +40,11 @@ class PhadyPropShare(Peer):
             isect = av_set.intersection(np_set)
             n = min(self.max_requests, len(isect))
 
-            # filter dictionary to keep only if in isect
+            # filter sorted dictionary to keep only if in isect
             isectFiltered = [k for k in pieceCountsSorted if k in list(isect)]
 
             # ask for first n pieces in isectFiltered
-            m = min(len(isectFiltered),n)
-            for piece_id in isectFiltered[0:m]:
+            for piece_id in isectFiltered[0:n]:
                 start_block = self.pieces[piece_id]
                 r = Request(self.id, peer.id, piece_id, start_block)
                 requests.append(r)
@@ -54,8 +52,6 @@ class PhadyPropShare(Peer):
         return requests
 
     def uploads(self, requests, peers, history):
-
-        # print "test"
 
         # current round
         round = history.current_round()
@@ -70,7 +66,6 @@ class PhadyPropShare(Peer):
             requesters = []
             for request in requests:
                 requesters.append(request.requester_id)
-                requesters = list(set(requesters))
 
             # count downloads received from peer in last round
             peerIds = [x.id for x in peers]
@@ -81,6 +76,9 @@ class PhadyPropShare(Peer):
 
             # all downloads I got from requesters last round
             totalDownloads = sum(scores.values())
+
+            # take list of unique requesters
+            requesters = list(set(requesters))
 
             # create dictionary of peers to upload to, and how much to send to them
             # Formula: u_j = 0.9*u_t*(d_j/d_t)
@@ -95,18 +93,29 @@ class PhadyPropShare(Peer):
             chosen = list(numsToUpload.keys())
             bwPreRound = list(numsToUpload.values())
 
-            # choose someone to optimistically unchoke
-            candidates = dict((k, v) for k, v in numsToUpload.items() if v == 0)
+            # choose someone to optimistically unchoke on third round
+            if round % 3 == 0:
+                candidates = dict((k, v) for k, v in numsToUpload.items() if v == 0)
 
-            # if there is a candidate, add to chosen and bws
-            if len(candidates) != 0:
-                winner = random.choice(candidates.keys())
-                chosen.append(winner)
-                bwPreRound.append(0.1 * self.up_bw)
+                # if there is a candidate, add to chosen and bws
+                if len(candidates) != 0:
+                    self.optim = random.choice(candidates.keys())
+                    chosen.append(self.optim)
+                    bwPreRound.append(0.1 * self.up_bw)
 
-            # otherwise, add 0.1*up_bw for all chosen
+                # otherwise, add 0.1*up_bw for all chosen
+                else:
+                    bwPreRound = [x + (0.1 * self.up_bw / len(chosen)) for x in bwPreRound]
+
+            # or keep person unchoked if they requested again and didn't upload
             else:
-                bwPreRound = [x + (0.1 * self.up_bw) for x in bwPreRound]
+                if self.optim in requesters and (scores[self.optim] == 0):
+                    chosen.append(self.optim)
+                    bwPreRound.append(0.1 * self.up_bw)
+
+                # otherwise, add 0.1*up_bw for all chosen
+                else:
+                    bwPreRound = [x + (0.1 * self.up_bw / len(chosen)) for x in bwPreRound]
 
             # round bandwidths using helper function (in util.py)
             bws = round_list(bwPreRound)
@@ -114,9 +123,5 @@ class PhadyPropShare(Peer):
         # create actual uploads out of the list of peer ids and bandwidths
         uploads = [Upload(self.id, peer_id, bw)
                    for (peer_id, bw) in zip(chosen, bws)]
-        print "####################################"
-        print self.id
-        print uploads
-        print "######################################"
-            
+
         return uploads
