@@ -4,8 +4,30 @@ import random
 import logging
 
 from messages import Upload, Request
-from util import even_split, round_list
+from util import even_split
 from peer import Peer
+
+def round_list(props):
+    """
+    Helper function for PropShare.
+    Rounds props to integers while keeping sum(roundedProps) = sum(props).
+    """
+
+    # round list elements and calculate number to add
+    roundedProps = [round(x) for x in props]
+    n = int(sum(props) - sum(roundedProps) - 0.01)
+
+    # choose n random elements and add/subtract 1 for each
+    while n != 0:
+        index = random.choice(range(len(props)))
+        if n > 0:
+            roundedProps[index] = roundedProps[index] + 1
+            n = n - 1
+        elif n < 0:
+            if roundedProps[index] >= 1:
+                roundedProps[index] = roundedProps[index] - 1
+                n = n + 1
+    return roundedProps
 
 class PhadyPropShare(Peer):
     def post_init(self):

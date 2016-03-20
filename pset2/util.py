@@ -97,27 +97,6 @@ def load_modules(agent_classes):
         return (class_name, agent_class)
 
     return dict(map(load, agent_classes))
-    
-def round_list(props):
-    """
-    rounds props to integers while keeping sum(props) constant
-    """
-
-    # round list elements and calculate number to add
-    roundedProps = [round(x) for x in props]
-    n = int(sum(props) - sum(roundedProps) - 0.01)
-
-    # choose n random elements and add/subtract 1 for each
-    while n != 0:
-        index = random.choice(range(len(props)))
-        if n > 0:
-            roundedProps[index] = roundedProps[index] + 1
-            n = n - 1
-        elif n < 0:
-            if roundedProps[index] >= 1:
-                roundedProps[index] = roundedProps[index] - 1
-                n = n + 1
-    return roundedProps
 
 class Params:
     def __init__(self):
