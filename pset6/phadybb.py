@@ -3,7 +3,7 @@
 import sys
 
 from gsp import GSP
-from util import argmax_index
+from util import argmax_index, ctr
 
 class phadyBB:
     """Balanced bidding agent"""
@@ -55,14 +55,11 @@ class phadyBB:
 
         returns a list of utilities per slot.
         """
-        # TODO: Fill this in
-        utilities = []   # Change this
 
-        # (pjh) for each slot:
-            # call slot_info to get min_bid + epsilon
-            # calculate utility when bidding min_bid + epsilon
+        info = self.slot_info(t, history, reserve)
 
-        
+        utilities = map(lambda j: ctr(t,j)*(self.value - ( info[j][1] + 1 ) ), range(len(info)))
+
         return utilities
 
     # pjh: just takes the highest expected util slot
@@ -95,14 +92,22 @@ class phadyBB:
         # TODO: Fill this in.
         bid = 0  # change this
 
+        # not expecting to win
+        if min_bid > self.value:
+            bid = self.value
+        # otherwise
+        elif slot != 0:
+            # ratio of ctr is the same as ratio of positional effect
+            bid = self.value - ( ctr(t,slot)/ctr(t,slot-1) ) * ( self.value - (min_bid + 1) ) 
+        else:
+            bid = self.value
+
         # pjh: we've got the target, just need to choose bid to
         # satsify the equation above
-        
+
         return bid
 
     # pjh: not sure what this does, but don't think we need to know
     def __repr__(self):
         return "%s(id=%d, value=%d)" % (
             self.__class__.__name__, self.id, self.value)
-
-

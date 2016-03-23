@@ -35,3 +35,6 @@ def stddev(lst):
         return 0
     m = mean(lst)
     return math.sqrt(sum((x-m)*(x-m) for x in lst) / len(lst))
+
+def ctr(t,j):
+    return (0.75**j) * round( 30 * math.cos(math.pi * t / 24 ) + 50 )
