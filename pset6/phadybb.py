@@ -98,12 +98,18 @@ class phadyBB:
         # otherwise
         elif slot != 0:
             # ratio of ctr is the same as ratio of positional effect
-            bid = self.value - ( ctr(t,slot)/ctr(t,slot-1) ) * ( self.value - (min_bid + 1) ) 
+            bid = self.value - ( ctr(t,slot)/ctr(t,slot-1) ) * ( self.value - (min_bid + 1) )
         else:
             bid = self.value
 
         # pjh: we've got the target, just need to choose bid to
         # satsify the equation above
+        # if t == 47:
+        #     print("New Agent:")
+        #     print(self.id)
+        #     print(t)
+        #     print(history.agents_spent[self.id])
+        #     print()
 
         return bid
 

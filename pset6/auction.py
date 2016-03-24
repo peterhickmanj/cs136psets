@@ -97,6 +97,9 @@ def sim(config):
             # Bids from agents with no money get reduced to zero
             have_money = lambda a: total_spent(a.id, t) < config.budget
             still_have_money = filter(have_money, agents)
+            # print("agents with budget spent:")
+            # print(list(itertools.ifilterfalse(have_money, agents)))
+            # print()
             current_bids = []
             for a in agents:
                 b = a.bid(t, history, reserve)
@@ -111,32 +114,32 @@ def sim(config):
         active_bidders = len(filter(lambda (i,b): b >= reserve, bids[t]))
         #####################################
         ##   1a.   Define no. of slots  (TO-DO: Check what the # of available slots should be)
-        #num_slots = max(1, active_bidders-1) 
-        num_slots = max(1, n-1) 
-       
+        #num_slots = max(1, active_bidders-1)
+        num_slots = max(1, n-1)
+
         ##   1b.  Calculate clicks/slot
         slot_clicks[t] = [iround(top_slot_clicks * pow(config.dropoff, i))
                           for i in range(num_slots)]
-                          
+
         ##  2. Run mechanism and allocate slots
         (slot_occupants[t], per_click_payments[t]) = (
             mechanism.compute(slot_clicks[t],
                               reserve, bids[t]))
-        
+
         ##  3. Define payments
         slot_payments[t] = map(lambda (x,y): x*y,
                                zip(slot_clicks[t], per_click_payments[t]))
-                               
+
         ##  4.  Save utility (misnamed as values)
         values[t] = dict(zip(agent_ids, zeros))
-        
+
         def agent_value(agent_id, clicks, payment):
             if agent_id is not None:
                 values[t][agent_id] = by_id[agent_id].value * clicks - payment
             return None
-        
+
         map(agent_value, slot_occupants[t], slot_clicks[t], slot_payments[t])
-        
+
         ## Debugging. Set to True to see what's happening.
         log_console = False
         if log_console:
@@ -149,8 +152,8 @@ def sim(config):
             logging.info("\tslot_payments: %s" % slot_payments[t])
             logging.info("\tUtility: %s" % values[t])
             logging.info("\ttotals spent: %s" % [total_spent(a.id, t+1) for a in agents])
-            
-    
+
+
     for t in range(0, config.num_rounds):
         # Over 48 rounds, go from 80 to 20 and back to 80.  Mean 50.
         # Makes sense when 48 rounds, to simulate a day
@@ -162,23 +165,23 @@ def sim(config):
         run_round(top_slot_clicks, t)
         for a in agents:
             history.set_agent_spent(a.id, total_spent(a.id, t))
-    
+
     for a in agents:
         history.set_agent_spent(a.id, total_spent(a.id, config.num_rounds))
-    
+
     return history
 
 class Params:
     def __init__(self):
         self._init_keys = set(self.__dict__.keys())
-    
+
     def add(self, k, v):
         self.__dict__[k] = v
 
     def __repr__(self):
         return "; ".join("%s=%s" % (k, str(self.__dict__[k]))
                          for k in self.__dict__.keys() if k not in self._init_keys)
-        
+
 
 def load_modules(agent_classes):
     """Each agent class must be in module class_name.lower().
@@ -191,7 +194,7 @@ def load_modules(agent_classes):
         return (class_name, agent_class)
 
     return dict(map(load, agent_classes))
-    
+
 
 def init_agents(conf):
     """Each agent class must be already loaded, and have a
@@ -249,7 +252,7 @@ def main(args):
         print "Error: %s\n" % msg
         parser.print_help()
         sys.exit()
-    
+
     parser.add_option("--loglevel",
                       dest="loglevel", default="info",
                       help="Set the logging level: 'debug' or 'info'")
@@ -273,7 +276,7 @@ def main(args):
     parser.add_option("--budget",
                       dest="budget", default=500000, type="int",
                       help="Total budget, in cents")
-    
+
     parser.add_option("--reserve",
                       dest="reserve", default=0, type="int",
                       help="Reserve price, in cents")
@@ -351,7 +354,7 @@ def main(args):
             stats = Stats(history, values)
             # Print stats in console?
             # logging.info(stats)
-            
+
             for id in range(n):
                 totals[id] += stats.total_utility(id)
                 total_spent[id] += history.agents_spent[id]
@@ -359,15 +362,15 @@ def main(args):
         total_revenues.append(total_rev / float(num_perms))
 
     ## total_spent = total amount of money spent by agents, for all iterations, all permutations, all rounds
-    
 
-    # Averages are over all the value permutations considered    
+
+    # Averages are over all the value permutations considered
     N = float(num_perms) * options.iters
     logging.info("%s\t\t%s\t\t%s" % ("#" * 15, "RESULTS", "#" * 15))
     logging.info("")
     for a in range(n):
         logging.info("Stats for Agent %d, %s" % (a, agents_to_run[a]) )
-        logging.info("Average spend $%.2f (daily)" % (0.01 *total_spent[a]/N)  )   
+        logging.info("Average spend $%.2f (daily)" % (0.01 *total_spent[a]/N)  )
         logging.info("Average  utility  $%.2f (daily)" % (0.01 * totals[a]/N))
         logging.info("-" * 40)
         logging.info("\n")
@@ -376,12 +379,12 @@ def main(args):
     logging.warning("Average daily revenue (stddev): $%.2f ($%.2f)" % (0.01 * m, 0.01*std))
 
 #print "config", config.budget
-    
+
 
     #for t in range(47, 48):
     #for a in agents:
         #print a,"'s added values is", av_value[a.id]
-        
+
 
 
 if __name__ == "__main__":
