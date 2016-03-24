@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import math
 
 from gsp import GSP
 from util import argmax_index
@@ -57,11 +58,6 @@ class phadyBB:
         """
         # TODO: Fill this in
         utilities = []   # Change this
-
-        # (pjh) for each slot:
-            # call slot_info to get min_bid + epsilon
-            # calculate utility when bidding min_bid + epsilon
-
         
         return utilities
 

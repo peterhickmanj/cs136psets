@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# implement total_payment() below
+
 import random
 
 from gsp import GSP
@@ -49,6 +51,8 @@ class VCG:
             """
             Total payment for a bidder in slot k.
             """
+
+            # we could use these
             c = slot_clicks
             n = len(allocation)
 
