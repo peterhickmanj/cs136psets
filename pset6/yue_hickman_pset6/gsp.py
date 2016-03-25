@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
-# implement total_payment() below
-
 import random
 
-from gsp import GSP
-
-class VCG:
+class GSP:
     """
-    Implements the Vickrey-Clarke-Groves mechanism for ad auctions.
+    Implements the generalized second price auction mechanism.
     """
     @staticmethod
     def compute(slot_clicks, reserve, bids):
@@ -27,9 +23,6 @@ class VCG:
             (in order)
          - per_click_payments is the corresponding payments.
         """
-
-        # The allocation is the same as GSP, so we filled that in for you...
-
         valid = lambda (a, bid): bid >= reserve
         valid_bids = filter(valid, bids)
 
@@ -46,48 +39,39 @@ class VCG:
 
         (allocation, just_bids) = zip(*allocated_bids)
 
-        def total_payment(k):
-            """
-            Total payment for a bidder in slot k.
-            """
-
-            # we could use these
-            c = slot_clicks
-            n = len(allocation)
-
-            sorted_bids = list(bids)
-            sorted_bids.sort(rev_cmp_bids)
-
-            if len(sorted_bids) > n:
-                bn = sorted_bids[n][1]
-                startSlot = n-1
-            else:
-                bn = 0
-                startSlot = len(sorted_bids)-1
-
-            startVal = c[startSlot] * max(bn,reserve)
-
-            payment = reduce(lambda prevVal,j: (c[j] - c[j+1]) * sorted_bids[j+1][1] + prevVal, list(reversed(range(k,startSlot))), startVal)
-
-            #payment = sum(map(lambda j: ( c[j-1] - c[j] )*just_bids[j],range(k+1,n)))
-            return payment
-
-        def norm(totals):
-            """Normalize total payments by the clicks in each slot"""
-            return map(lambda (x,y): x/y, zip(totals, slot_clicks))
-
-        per_click_payments = norm(
-            [total_payment(k) for k in range(len(allocation))])
-
+        # Each pays the bid below them, or the reserve
+        per_click_payments = list(just_bids[1:])  # first num_slots - 1 slots
+        # figure out whether the last slot payment is set by the reserve or
+        # the first non-allocated bidder
+        if len(valid_bids) > num_slots:
+            last_payment = valid_bids[num_slots][1]
+        else:
+            last_payment = reserve
+        per_click_payments.append(last_payment)
         return (list(allocation), per_click_payments)
 
     @staticmethod
     def bid_range_for_slot(slot, slot_clicks, reserve, bids):
         """
         Compute the range of bids that would result in the bidder ending up
-        in slot, given that the other bidders submit bidders.
+        in slot, given that the other bidders submit bids of previous round.
         Returns a tuple (min_bid, max_bid).
         If slot == 0, returns None for max_bid, since it's not well defined.
         """
-        # Conveniently enough, bid ranges are the same for GSP and VCG:
-        return GSP.bid_range_for_slot(slot, slot_clicks, reserve, bids)
+        bid_amounts = [b for (_, b) in bids if b >= reserve]
+        bid_amounts.sort()
+        bid_amounts.reverse()
+
+        n = len(bid_amounts)
+        if slot >= n:
+            # More than reserve, less than smallest bid
+            if n > 0:
+                max_bid = bid_amounts[-1]
+            else:
+                max_bid = reserve if slot > 0 else None
+            return (reserve, max_bid)
+
+        min_bid = bid_amounts[slot]
+        max_bid = bid_amounts[slot-1] if slot > 0 else None
+        return (min_bid, max_bid)
+
